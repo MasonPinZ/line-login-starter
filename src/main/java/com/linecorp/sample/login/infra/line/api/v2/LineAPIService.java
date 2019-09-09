@@ -140,4 +140,12 @@ public class LineAPIService {
         return Client.getClient("https://api.line.me/", LineAPI.class, function);
     }
 
+    public String getChannelId() {
+        return channelId;
+    }
+
+    public String getChannelSecret() {
+        return channelSecret;
+    }
+
 }

@@ -15,8 +15,11 @@
  */
 package com.linecorp.sample.login.application.controller;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpSession;
 import java.util.Arrays;
+import java.util.Base64;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -111,6 +114,30 @@ public class WebController {
         return "redirect:/success";
     }
 
+    private String getCurlCommandForFollow(String channelID, String channelSecret, String userID) {
+        try {
+            String httpRequestBody = "{\"events\":[{\"type\":\"follow\",\"replyToken\":\"baf231f39eb94640b612a397998eab77\",\"source\":{\"userId\":\"%s\",\"type\":\"user\"},\"timestamp\":%s}]}"; // Request body string
+            httpRequestBody = String.format(httpRequestBody, userID, System.currentTimeMillis());
+            logger.debug("generating signature for request body: " + httpRequestBody);
+            SecretKeySpec key = new SecretKeySpec(channelSecret.getBytes(), "HmacSHA256");
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(key);
+            byte[] source = httpRequestBody.getBytes("UTF-8");
+            String signature = Base64.getEncoder().encodeToString(mac.doFinal(source));
+            // 
+            String cmd = String.join(" ", 
+            "curl -X POST",
+            String.format("'https://YOUR-DOMAIN-NAME/nms/lineCallback-v2.jssp?channelId=%s'", channelID),
+            "-H 'Content-Type: text/plain'",
+            String.format("-H 'X-Line-Signature: %s'", signature),
+            String.format("-d '%s'", httpRequestBody));
+            logger.debug(cmd);
+            return cmd;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     /**
     * <p>login success Page
     */
@@ -135,6 +162,7 @@ public class WebController {
             logger.debug("pictureUrl : " + idToken.picture);
         }
         model.addAttribute("idToken", idToken);
+        model.addAttribute("curlCmd", this.getCurlCommandForFollow(lineAPIService.getChannelId(), lineAPIService.getChannelSecret(), idToken.sub));
         return "user/success";
     }
 
